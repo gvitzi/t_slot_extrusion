@@ -1,6 +1,6 @@
 // T-Slot Extrusion
 
-object_type = "extrusion"; // ["extrusion", "cap"]
+object_type = "extrusion"; // ["extrusion", "cap", "cube connector", "cube connector face cap", "cube connector round cap"]
 
 profile_type = "40x40"; // ["40x40","40x80"]
 
@@ -267,10 +267,107 @@ module cap() {
     
 }
 
+cube_connector_tool_hole_size = 11;
+cube_connector_wall_thickness = 3;
+
+module cube_connector() {
+    smooth = corner_radius;
+    h = profile_size;
+    x = frame_x;
+    y = frame_y;
+
+    screw_hole = nut_size/2 + 1;
+    tool_hole = cube_connector_tool_hole_size;
+
+    wall_thickness = cube_connector_wall_thickness;
+    inner_size = h-wall_thickness*2;
+    
+    difference() {
+        //Cube Frame
+        hull() {
+            // base rounded rect
+            translate([0,0,smooth])linear_extrude(height=h-smooth*2-wall_thickness)frame();
+
+            // rounded bottom
+            translate([start_x,x,smooth])sphere(smooth);
+            translate([start_x,y,smooth])sphere(smooth);
+            translate([y,y,smooth])sphere(smooth);
+            translate([y,x,smooth])sphere(smooth);
+        }
+
+        // Create inside room
+        translate([0,0,inner_size/2 + wall_thickness + 5])cube(size=[inner_size,inner_size,inner_size+10],center=true);
+
+        // Holes
+        {
+            // Tool holes
+           translate([0,0,h/2])rotate([0,0,0])cylinder(r=tool_hole,h=h);
+           translate([0,h,h/2])rotate([90,0,0])cylinder(r=tool_hole,h=h);
+           translate([-h,0,h/2])rotate([0,90,0])cylinder(r=tool_hole,h=h);
+
+            //screw holes
+            translate([0,0,-h/2])rotate([0,0,0])cylinder(r=screw_hole,h=h);
+            translate([0,0,h/2])rotate([90,0,0])cylinder(r=screw_hole,h=h);
+            translate([0,0,h/2])rotate([0,90,0])cylinder(r=screw_hole,h=h);
+        }
+    }   
+}
+
+
+module cube_connector_face_cap() {
+    smooth = corner_radius;
+    h = profile_size;
+    x = frame_x;
+    y = frame_y;
+    wall_thickness = cube_connector_wall_thickness;
+
+    // cap attachment leg
+    difference() {
+        //Cube Frame
+        union(){
+            hull() {
+                // base rounded rect
+                translate([0,0,h - wall_thickness - smooth])linear_extrude(height=wall_thickness)frame();
+
+                // rounded top
+                translate([start_x,x,h - smooth])sphere(smooth);
+                translate([start_x,y,h - smooth])sphere(smooth);
+                translate([y,y,h - smooth])sphere(smooth);
+                translate([y,x,h - smooth])sphere(smooth);
+            }
+
+            translate([0,0,profile_size-wall_thickness*2])cube([profile_size-wall_thickness*2 - 0.4,profile_size-wall_thickness*2 -0.4,wall_thickness+2],center=true);
+        }
+        translate([0,0,profile_size-wall_thickness*2])cube([profile_size-wall_thickness*2-3,profile_size-wall_thickness*2-3,wall_thickness+3],center=true);
+    }
+}
+
+module cube_connector_round_cap() {
+    hole_size = cube_connector_tool_hole_size;
+
+    cylinder(r1=hole_size,r2=hole_size+2,h=1);
+    difference() {
+        translate([0,0,1])cylinder(r=hole_size,h=2);
+        translate([0,0,1.1])cylinder(r=hole_size-1,h=3);
+    }
+}
+
 if (object_type == "extrusion") {
     linear_extrude(height=length)profile();
 }
 
 if (object_type == "cap") {
     cap();
+}
+
+if (object_type == "cube connector") {
+    wall_thickness = cube_connector_wall_thickness;
+    cube_connector();
+}
+
+if (object_type == "cube connector face cap") {
+    translate([0,0,40])rotate([180,0,0])cube_connector_face_cap();
+}
+if (object_type == "cube connector round cap") {
+    cube_connector_round_cap();
 }
