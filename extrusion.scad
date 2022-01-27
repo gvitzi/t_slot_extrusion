@@ -2,7 +2,7 @@
 
 object_type = "Extrusion"; // ["Extrusion", "Cap", "Cube Connector", "Cube Connector Face Cap", "Cube Connector Round Cap"]
 
-profile_type = "40x40"; // ["20x20","20x40","40x40","40x80"]
+profile_type = "40x40"; // ["20x20 M5","20x20 M6","20x40 M5","20x40 M6", "40x40 M8","40x80 M8"]
 
 profile_sizes = [
     // base_size,  slot_width,  slot_depth,   nut size, screw_hole, profile_face_thickness ] 
@@ -11,7 +11,10 @@ profile_sizes = [
     [       40,         20,        12-3,         8,          7.5,        3] ,
 ];
 
-function get_profile_index() = profile_type == "20x20" || profile_type == "20x40" ? 0 : profile_type == "40x40" || profile_type == "40x80" ? 2 : -1;
+function get_profile_index() = 
+    profile_type == "20x20 M5" || profile_type == "20x40 M5" ? 0 :
+    profile_type == "20x20 M6" || profile_type == "20x40 M6" ? 1 :
+    profile_type == "40x40 M8" || profile_type == "40x80 M8" ? 2 : -1;
 
 function get_profile_size() = profile_sizes[get_profile_index()][0];
 function get_slot_width() = profile_sizes[get_profile_index()][1];
@@ -23,8 +26,8 @@ function get_profile_face_thickness() = profile_sizes[get_profile_index()][5];
 profile_size = get_profile_size();
 
 // set to true if "40x80" is chosen
-double_frame = profile_type == "20x40" || profile_type == "40x80";
-
+double_frame = profile_type == "20x40 M5" || profile_type == "20x40 M6" || profile_type == "40x80 M8";
+echo(["doubel_frame",double_frame]);
 // Extrusion Length
 length = 1;
 
@@ -50,7 +53,7 @@ screw_hole = get_screw_hole();
 thread = false;
 
 // Flat sides options
-flat_sides = "None"; // ["None","A","AB","ABC","ABCD", "AC"] 
+flat_sides = "None"; // ["None","A","AB","ABC","ABCD", "AC", "BD"] 
 
 // Thickness of the profile face , This will control how 'deep' the slot sits inside the profile
 profile_face_thickness = get_profile_face_thickness();
@@ -224,7 +227,7 @@ module cap_slot_leg() {
 
 module cap_slot_legs_and_pin(cap_height) {
     // Center Pin
-    cetner_pin_height = 4*0.0001;
+    cetner_pin_height = 3;
     r = nut_size/2-0.5;
 
     translate([0,0,-cetner_pin_height])linear_extrude(cetner_pin_height+cap_height){
@@ -303,7 +306,7 @@ module cube_connector() {
     x = frame_x;
     y = frame_y;
 
-    screw_hole = get_screw_hole() - 0.5;
+    screw_hole = get_screw_hole() / 2 + 0.5;
     tool_hole = cube_connector_tool_hole_size;
 
     wall_thickness = cube_connector_wall_thickness;
@@ -348,6 +351,9 @@ module cube_connector_face_cap() {
     y = frame_y;
     wall_thickness = cube_connector_wall_thickness;
 
+    // Smaller margin means tighter fit, higher margin means more loose
+    margin = 0.3;
+
     // cap attachment leg
     difference() {
         //Cube Frame
@@ -364,12 +370,12 @@ module cube_connector_face_cap() {
             }
 
             // leg
-            translate([0,0,profile_size-wall_thickness*2])cube([profile_size-wall_thickness*2 - 0.4,profile_size-wall_thickness*2 -0.4,wall_thickness+2],center=true);
+            translate([0,0,profile_size-wall_thickness*2])cube([profile_size-wall_thickness*2 - margin,profile_size-wall_thickness*2 -margin,wall_thickness+2],center=true);
         }
 
         difference() {
             translate([-profile_size/2 - 1,-profile_size/2 - 1,profile_size-wall_thickness*3-1])cube([profile_size+2, profile_size+2, wall_thickness+1]);
-            translate([0,0,profile_size-wall_thickness*2])cube([profile_size-wall_thickness*2 - 0.4,profile_size-wall_thickness*2 -0.4,wall_thickness+2],center=true);
+            translate([0,0,profile_size-wall_thickness*2])cube([profile_size-wall_thickness*2 - margin,profile_size-wall_thickness*2 -margin,wall_thickness+2],center=true);
         }
         
         translate([0,0,profile_size-wall_thickness*2])cube([profile_size-wall_thickness*2-3,profile_size-wall_thickness*2-3,wall_thickness+3],center=true);
@@ -378,11 +384,11 @@ module cube_connector_face_cap() {
 
 module cube_connector_round_cap() {
     hole_size = cube_connector_tool_hole_size;
-
+    margin = 0.1;
     cylinder(r1=hole_size,r2=hole_size+2,h=1);
     difference() {
-        translate([0,0,1])cylinder(r=hole_size,h=2);
-        translate([0,0,1.1])cylinder(r=hole_size-1,h=3);
+        translate([0,0,1])cylinder(r=hole_size-margin,h=2);
+        translate([0,0,1.1])cylinder(r=hole_size-margin-1,h=3);
     }
 }
 
@@ -391,7 +397,7 @@ if (object_type == "Extrusion") {
 }
 
 if (object_type == "Cap") {
-    cap();
+    rotate([180,0,0])cap();
 }
 
 if (object_type == "Cube Connector") {
