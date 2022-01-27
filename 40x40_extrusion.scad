@@ -1,30 +1,50 @@
 // T-Slot Extrusion
 
-object_type = "extrusion"; // ["extrusion", "cap", "cube connector", "cube connector face cap", "cube connector round cap"]
+object_type = "Extrusion"; // ["Extrusion", "Cap", "Cube Connector", "Cube Connector Face Cap", "Cube Connector Round Cap"]
 
-profile_type = "40x40"; // ["40x40","40x80"]
+profile_type = "40x40"; // ["20x20","20x40","40x40","40x80"]
 
+profile_sizes = [
+    // base_size,  slot_width,  slot_depth,   nut size, screw_hole, profile_face_thickness ] 
+    [       20,         11,     6.1-1.8,         5,          4.5,        1.8] ,
+    [       20,         11,     6.1-1.8,         6,          5.5,        1.8] ,
+    [       40,         20,        12-3,         8,          7.5,        3] ,
+];
+
+function get_profile_index() = profile_type == "20x20" || profile_type == "20x40" ? 0 : profile_type == "40x40" || profile_type == "40x80" ? 2 : -1;
+
+function get_profile_size() = profile_sizes[get_profile_index()][0];
+function get_slot_width() = profile_sizes[get_profile_index()][1];
+function get_slot_depth() = profile_sizes[get_profile_index()][2];
+function get_nut_size() = profile_sizes[get_profile_index()][3];
+function get_screw_hole() = profile_sizes[get_profile_index()][4];
+function get_profile_face_thickness() = profile_sizes[get_profile_index()][5];
+
+profile_size = get_profile_size();
 
 // set to true if "40x80" is chosen
-double_frame = len(search("8", profile_type)) > 0;
-    
+double_frame = profile_type == "20x40" || profile_type == "40x80";
+
 // Extrusion Length
 length = 1;
 
 // Filling type -  E = Ultralight, L = Light, S = Heavy
-fill_type = "E"; // ["E","L","S"]
+fill_type = "S"; // ["E","L","S"]
 
 // Slot Type
-slot_type = "I"; // ["B","I"]
+slot_type = "B"; // ["B","I"]
 
 // The corner radius in mm
-corner_radius = 3;
+corner_radius = 2;
 
 // Nut Size - The size of screw hole at the ends
-nut_size = 7.5;
+nut_size = get_nut_size();
 
 // Slot Opening 
-slot_opening = 8;
+slot_opening = get_nut_size() + 0.2;
+
+// Screw Hole
+screw_hole = get_screw_hole();
 
 // End Threads - Not Implemented
 thread = false;
@@ -33,10 +53,8 @@ thread = false;
 flat_sides = "None"; // ["None","A","AB","ABC","ABCD", "AC"] 
 
 // Thickness of the profile face , This will control how 'deep' the slot sits inside the profile
-profile_face_thickness = 3;
+profile_face_thickness = get_profile_face_thickness();
 
-// Work In Progress - Changing this will most likely output a broken model
-profile_size = 40; // [50,40,30,20,15]
 profile_x = profile_size;
 profile_y = profile_size;
 
@@ -48,30 +66,33 @@ start_x = double_frame ?  frame_x + profile_size : frame_x;
 frame_y = -profile_size/2 + corner_radius;
 
 module slot() {
-    outer_radius = corner_radius;
-    r = outer_radius/3;
+    r = profile_size / 40;
    
-    slot_width = 20;
-    slot_depth = 10;
+    slot_width = get_slot_width();
+    slot_depth = get_slot_depth();
 
     wing_length = (slot_width - slot_opening) / 2;
-    
+    narrow_width = slot_opening - 1; 
     difference() {
-        translate([-slot_opening/2, -profile_face_thickness]){
-            square([slot_opening,profile_face_thickness]);
-            hull() {
-                translate([-wing_length + r, -r])circle(r);
-                translate([slot_opening + wing_length -r, -r])circle(r);
-                translate([slot_opening + wing_length -r, -4])circle(r);
-                translate([slot_opening - 0.5, -slot_depth+r])circle(r);
-                translate([0.5, -slot_depth+r])circle(r);
-                translate([-5, -slot_depth+r +5])circle(r);            
+        translate([0, -profile_face_thickness]){
+           translate([-slot_opening/2,0,0])square([slot_opening,profile_face_thickness+0.1]);
+           hull() {
+                translate([-slot_width/2 + r, -r])circle(r);
+                translate([slot_width/2 - r, -r])circle(r);
+                translate([slot_width/2 - r, -slot_depth/2.5])circle(r);
+                translate([narrow_width/2, -slot_depth])circle(r);
+                translate([-narrow_width/2, -slot_depth])circle(r);
+                translate([-slot_width/2 + r, -slot_depth/2.5])circle(r);            
             }
+
+            
        }
        
        if (slot_type == "I") {
-           translate([4,-5])square([2.5,2]);
-           translate([-6.5,-5])square([2.5,2]);
+           slot_teeth_size = slot_depth / 6;
+           slot_teeth_width = slot_teeth_size + 0.5;
+           translate([slot_opening / 2,-profile_face_thickness-slot_teeth_size])square([slot_teeth_width,slot_teeth_size]);
+           translate([-slot_opening / 2 -slot_teeth_width ,-profile_face_thickness-slot_teeth_size])square([slot_teeth_width,slot_teeth_size]);
        }
    }
 }
@@ -141,7 +162,7 @@ module square_profile_cuts() {
         }
 
        // Center Hole
-        circle(r=nut_size/2);
+        circle(r=screw_hole / 2);
 
         if (fill_type == "L") {
             // add holes to make light "L"
@@ -191,21 +212,28 @@ module profile() {
 }
 
 module cap_slot_leg() {
-    sr = 0.90; // Scale Ratio
-    translate([0,19.5,0])scale(sr)difference(){
+    sr = 0.92; // Scale Ratio
+    adjust = (profile_size - 20) / 80;
+    y = profile_size - profile_face_thickness - get_slot_depth()*2 + adjust;
+
+    translate([0,y,0])scale(sr)difference(){
             slot(); 
-            translate([-slot_opening/2,-profile_face_thickness,0])square([slot_opening,profile_face_thickness]);
+            translate([-slot_opening/2,-profile_face_thickness,0])square([slot_opening,profile_face_thickness+0.1]);
         }
 }
 
 module cap_slot_legs_and_pin(cap_height) {
     // Center Pin
-    cetner_pin_height = 4;
+    cetner_pin_height = 4*0.0001;
+    r = nut_size/2-0.5;
+
     translate([0,0,-cetner_pin_height])linear_extrude(cetner_pin_height+cap_height){
         circle(r=nut_size/2-0.5);
         // Center Pin wings
-        translate([-3.5,-1,0])square([7,2]);
-        translate([-1,-3.5,0])square([2,7]);
+        wing_width = r/1.5;
+        wing_length = r*2 + 0.5;
+        #translate([-wing_length/2,-wing_width/2,0])square([wing_length,wing_width]);
+        #translate([-wing_width/2,-wing_length/2,0])square([wing_width,wing_length]);
     }
         
     // Slot Legs
@@ -219,10 +247,9 @@ module cap_slot_legs_and_pin(cap_height) {
 }
 
 module cap() {
-    cap_height = 3;
+    cap_height = profile_face_thickness;
     r = corner_radius;
-   
-    smooth = r;
+    smooth = corner_radius;
     x = frame_x;
     y = frame_y;
     
@@ -241,7 +268,7 @@ module cap() {
         }
         
         // Cut bottom
-        translate([0,0,-smooth])linear_extrude(height=smooth)hull() {
+        translate([0,0,-smooth-0.5])linear_extrude(height=smooth+0.5)hull() {
             translate([x*4, y*2])circle(r);
             translate([x*4, -y*2])circle(r); 
             translate([-x*4, y*2])circle(r); 
@@ -267,8 +294,8 @@ module cap() {
     
 }
 
-cube_connector_tool_hole_size = 11;
-cube_connector_wall_thickness = 3;
+cube_connector_tool_hole_size = profile_size / 4;
+cube_connector_wall_thickness = profile_face_thickness;
 
 module cube_connector() {
     smooth = corner_radius;
@@ -276,7 +303,7 @@ module cube_connector() {
     x = frame_x;
     y = frame_y;
 
-    screw_hole = nut_size/2 + 1;
+    screw_hole = get_screw_hole() - 0.5;
     tool_hole = cube_connector_tool_hole_size;
 
     wall_thickness = cube_connector_wall_thickness;
@@ -336,8 +363,15 @@ module cube_connector_face_cap() {
                 translate([y,x,h - smooth])sphere(smooth);
             }
 
+            // leg
             translate([0,0,profile_size-wall_thickness*2])cube([profile_size-wall_thickness*2 - 0.4,profile_size-wall_thickness*2 -0.4,wall_thickness+2],center=true);
         }
+
+        difference() {
+            translate([-profile_size/2 - 1,-profile_size/2 - 1,profile_size-wall_thickness*3-1])cube([profile_size+2, profile_size+2, wall_thickness+1]);
+            translate([0,0,profile_size-wall_thickness*2])cube([profile_size-wall_thickness*2 - 0.4,profile_size-wall_thickness*2 -0.4,wall_thickness+2],center=true);
+        }
+        
         translate([0,0,profile_size-wall_thickness*2])cube([profile_size-wall_thickness*2-3,profile_size-wall_thickness*2-3,wall_thickness+3],center=true);
     }
 }
@@ -352,22 +386,23 @@ module cube_connector_round_cap() {
     }
 }
 
-if (object_type == "extrusion") {
+if (object_type == "Extrusion") {
     linear_extrude(height=length)profile();
 }
 
-if (object_type == "cap") {
+if (object_type == "Cap") {
     cap();
 }
 
-if (object_type == "cube connector") {
+if (object_type == "Cube Connector") {
     wall_thickness = cube_connector_wall_thickness;
     cube_connector();
 }
 
-if (object_type == "cube connector face cap") {
+if (object_type == "Cube Connector Face Cap") {
     translate([0,0,40])rotate([180,0,0])cube_connector_face_cap();
 }
-if (object_type == "cube connector round cap") {
+
+if (object_type == "Cube Connector Round Cap") {
     cube_connector_round_cap();
 }
